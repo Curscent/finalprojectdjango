@@ -1,5 +1,7 @@
+// frontend/screens/MediaEdit.js
+
 import React, { useState, useEffect, useContext } from 'react';
-import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform } from 'react-native';
+import { View, Text, TextInput, TouchableOpacity, StyleSheet, ActivityIndicator, Alert, Platform, ScrollView } from 'react-native';
 import { Picker } from '@react-native-picker/picker'; 
 import { useTheme } from '../context/ThemeContext'; 
 import { AuthContext } from '../context/AuthContext'; 
@@ -9,9 +11,8 @@ import axios from 'axios';
 const API_BASE_URL = 'http://192.168.8.103:8000/api/media-items/';
 
 // --- CRITICAL FIX: These keys MUST match the keys in backend/media_tracker/models.py ---
-// Keys from your STATUS_CHOICES: ('Planned', 'Planned to Watch'), ('Finished', 'Finished')
 const STATUS_FINISHED_VALUE = 'Finished'; 
-const STATUS_TOWATCH_VALUE = 'Planned'; // Using 'Planned' as the opposite of 'Finished'
+const STATUS_TOWATCH_VALUE = 'Planned'; 
 // ---------------------------------------------------------------------------------------
 
 
@@ -49,7 +50,6 @@ const MediaEdit = ({ route, navigation }) => {
                 setMediaType(item.media_type);
                 setTimeHours(item.time_hours != null ? item.time_hours.toString() : ''); 
                 setIsFavorite(item.is_favorite);
-                // Check if the item's status matches the 'Finished' key
                 setIsFinished(item.status === STATUS_FINISHED_VALUE); 
             } catch (error) {
                 console.error("Error fetching item:", error.response?.data || error.message);
@@ -85,7 +85,6 @@ const MediaEdit = ({ route, navigation }) => {
                 config
             ); 
             setIsFavorite(newFavoriteStatus); 
-            // Removed success alert for cleaner flow
         } catch (error) {
             console.error("❌ FAVORITE TOGGLE FAILED:", error.response?.data || error.message);
             Alert.alert("Error", `Failed to ${newFavoriteStatus ? 'favorite' : 'unfavorite'} item.`);
@@ -102,7 +101,6 @@ const MediaEdit = ({ route, navigation }) => {
         }
 
         const newFinishedStatus = !isFinished;
-        // Uses the correct Django keys
         const newStatusValue = newFinishedStatus ? STATUS_FINISHED_VALUE : STATUS_TOWATCH_VALUE;
 
         setLoading(true);
@@ -113,7 +111,6 @@ const MediaEdit = ({ route, navigation }) => {
                 config
             ); 
             setIsFinished(newFinishedStatus); 
-            // Removed success alert for cleaner flow
         } catch (error) {
             console.error("❌ STATUS TOGGLE FAILED:", error.response?.data || error.message);
             Alert.alert("Error", `Failed to change status.`);
@@ -137,21 +134,18 @@ const MediaEdit = ({ route, navigation }) => {
         }
         // --- END Input Validation ---
         
-        // Use the correct Django status key
         const statusToSend = isFinished ? STATUS_FINISHED_VALUE : STATUS_TOWATCH_VALUE;
         
         setLoading(true);
         try {
-            // PUT request updates all fields
             await axios.put(`${API_BASE_URL}${itemId}/`, {
                 title,
                 media_type: mediaType,
                 time_hours: numericHours, 
                 is_favorite: isFavorite, 
-                status: statusToSend, // This now sends 'Finished' or 'Planned'
+                status: statusToSend, 
             }, config); 
 
-            // ⭐ This executes ONLY upon successful 200 OK response from the server
             navigation.goBack(); 
             
         } catch (error) {
@@ -159,7 +153,6 @@ const MediaEdit = ({ route, navigation }) => {
             
             let errorMessage = "Failed to update item. ";
             if (error.response?.data) {
-                // Display the specific validation error message from Django
                 errorMessage += "\nValidation Details:";
                 errorMessage += "\n" + Object.entries(error.response.data)
                     .map(([key, value]) => `${key}: ${Array.isArray(value) ? value.join(', ') : value}`)
@@ -173,7 +166,6 @@ const MediaEdit = ({ route, navigation }) => {
     };
     
     const handleDelete = () => {
-        // Navigates to a separate screen to confirm deletion
         navigation.navigate('MediaDelete', { itemId });
     };
 
@@ -200,8 +192,8 @@ const MediaEdit = ({ route, navigation }) => {
 
 
     return (
-        <View style={[styles.container, { backgroundColor: theme.background }]}>
-            <View style={styles.form}>
+        <ScrollView style={[styles.container, { backgroundColor: theme.background }]} contentContainerStyle={styles.scrollContent}>
+            <View style={[styles.form, { backgroundColor: theme.card }]}>
                 
                 {/* Favorite Toggle */}
                 <TouchableOpacity 
@@ -213,31 +205,30 @@ const MediaEdit = ({ route, navigation }) => {
                     ]}
                     disabled={loading} 
                 >
-                    <Text style={[styles.favoriteButtonText, { color: isFavorite ? theme.card : theme.text, fontSize: theme.fonts.body - 2 }]}> 
+                    <Text style={[styles.favoriteButtonText, { color: isFavorite ? theme.card : theme.text, fontSize: 16 }]}> 
                         {isFavorite ? '⭐ Remove from Favorites' : 'Add to Favorites'}
                     </Text>
                 </TouchableOpacity>
 
                 {/* Title Input */}
-                <Text style={[styles.label, { color: theme.text, fontSize: theme.fonts.body - 2 }]}>Title:</Text>
+                <Text style={[styles.label, { color: theme.text, fontSize: 14 }]}>Title:</Text>
                 <TextInput
                     style={[styles.input, { 
-                        backgroundColor: theme.card, 
+                        backgroundColor: theme.inputBackground || theme.card, // Use a distinct background if available
                         color: theme.text, 
                         borderColor: theme.border,
-                        fontSize: theme.fonts.body - 2,
-                        padding: theme.unit - 5
+                        fontSize: 16,
                     }]}
                     value={title}
                     onChangeText={setTitle}
                 />
                 
                 {/* Type Selection (Picker) */}
-                <Text style={[styles.label, { color: theme.text, fontSize: theme.fonts.body - 2 }]}>Type:</Text>
+                <Text style={[styles.label, { color: theme.text, fontSize: 14 }]}>Type:</Text>
                 <View style={[
                     styles.pickerWrapper, 
                     { 
-                        backgroundColor: theme.card, 
+                        backgroundColor: theme.inputBackground || theme.card, 
                         borderColor: theme.border,
                     }
                 ]}>
@@ -253,14 +244,13 @@ const MediaEdit = ({ route, navigation }) => {
                 </View>
                 
                 {/* Hours Input */}
-                <Text style={[styles.label, { color: theme.text, fontSize: theme.fonts.body - 2 }]}>Time (Hours):</Text>
+                <Text style={[styles.label, { color: theme.text, fontSize: 14 }]}>Time (Hours):</Text>
                 <TextInput
                     style={[styles.input, { 
-                        backgroundColor: theme.card, 
+                        backgroundColor: theme.inputBackground || theme.card, 
                         color: theme.text, 
                         borderColor: theme.border,
-                        fontSize: theme.fonts.body - 2,
-                        padding: theme.unit - 5
+                        fontSize: 16,
                     }]}
                     value={timeHours}
                     onChangeText={setTimeHours}
@@ -270,94 +260,144 @@ const MediaEdit = ({ route, navigation }) => {
                 {/* Mark as Finished Button */}
                 <TouchableOpacity 
                     onPress={handleStatusToggle} 
-                    style={[styles.actionButton, styles.finishedButton, isFinished && styles.finishedActive, {padding: theme.unit - 3, borderRadius: theme.radius}]} 
+                    style={[
+                        styles.actionButton, 
+                        styles.finishedButton, 
+                        isFinished && styles.finishedActive, 
+                        styles.largeRadius
+                    ]} 
                     disabled={loading}
                 >
-                    <Text style={[styles.buttonText, {fontSize: theme.fonts.body - 2}]}>
+                    <Text style={styles.buttonText}>
                         {isFinished ? '✅ Unmark as Finished (Planned)' : 'Mark as Finished'}
                     </Text>
                 </TouchableOpacity>
 
                 {/* Save Changes Button (For Title, Type, Hours) */}
-                <TouchableOpacity onPress={handleSave} style={[styles.actionButton, styles.saveButton, {padding: theme.unit - 3, borderRadius: theme.radius}]} disabled={loading}> 
-                    <Text style={[styles.buttonText, {fontSize: theme.fonts.body - 2}]}>Save Changes</Text>
+                <TouchableOpacity onPress={handleSave} style={[styles.actionButton, styles.saveButton, styles.largeRadius]} disabled={loading}> 
+                    <Text style={styles.buttonText}>Save Changes</Text>
                 </TouchableOpacity>
 
                 {/* Delete Item Button */}
-                <TouchableOpacity onPress={handleDelete} style={[styles.actionButton, styles.deleteButton, {padding: theme.unit - 3, borderRadius: theme.radius}]} disabled={loading}> 
-                    <Text style={[styles.buttonText, {fontSize: theme.fonts.body - 2}]}>Delete Item</Text>
+                <TouchableOpacity onPress={handleDelete} style={[styles.actionButton, styles.deleteButton, styles.largeRadius]} disabled={loading}> 
+                    <Text style={styles.buttonText}>Delete Item</Text>
                 </TouchableOpacity>
+                
+                <View style={{height: 30}} /> {/* Spacer at the bottom */}
             </View>
-        </View>
+        </ScrollView>
     );
 };
 
 const styles = StyleSheet.create({
-    container: { flex: 1, padding: 15 }, 
-    loading: { flex: 1, justifyContent: 'center' },
-    form: { 
-        width: '100%', 
-        maxWidth: 350, 
-        alignSelf: 'center', 
-        marginTop: 5 
+    container: { 
+        flex: 1, 
+        paddingHorizontal: 20, 
+        paddingVertical: 10,
+    }, 
+    scrollContent: {
+        paddingVertical: 20,
     },
+    loading: { flex: 1, justifyContent: 'center' },
+    
+    // --- CARD CONTAINER ---
+    form: { 
+        padding: 25, 
+        borderRadius: 16, // Soft corners
+        width: '100%', 
+        maxWidth: 400, 
+        alignSelf: 'center', 
+        marginBottom: 20,
+        
+        // Shadow for the card
+        ...Platform.select({
+            ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.1, shadowRadius: 10 },
+            android: { elevation: 6 },
+            default: { boxShadow: '0 4px 10px rgba(0,0,0,0.1)' } 
+        }),
+    },
+    
     cardShadow: Platform.select({
         ios: { shadowColor: "#000", shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 4 },
         android: { elevation: 3 },
         default: { boxShadow: '0 1px 3px rgba(0,0,0,0.1)' } 
     }),
-    label: { fontWeight: '600', marginTop: 8, marginBottom: 2 }, 
+    
+    // --- INPUTS AND LABELS ---
+    label: { 
+        fontWeight: '600', 
+        marginTop: 15, 
+        marginBottom: 5 
+    }, 
     input: {
-        borderRadius: 4, 
+        paddingVertical: 12, // Increased padding
+        paddingHorizontal: 15,
+        borderRadius: 12, // Soft corners
         borderWidth: 1,
-        marginBottom: 6, 
-        height: 30, 
-        paddingHorizontal: 8,
+        marginBottom: 10,
     },
+    
+    // --- PICKER ---
     pickerWrapper: {
-        borderRadius: 4, 
+        paddingVertical: 0, 
+        borderRadius: 12, // Match input
         borderWidth: 1,
         overflow: 'hidden', 
-        marginBottom: 6, 
-        height: 30, 
+        marginBottom: 10,
     },
     pickerStyle: {
         width: '100%',
-        height: 30, 
+        // Adjust height for native Picker vs. Web/Android
+        height: Platform.OS === 'ios' ? 120 : 45, 
     },
+    
+    // --- BUTTONS ---
     actionButton: {
         alignItems: 'center',
-        marginTop: 8, 
+        paddingVertical: 14, // Consistent padding
+        marginTop: 15,
         ...Platform.select({
             default: { cursor: 'pointer' },
         }),
     },
+    largeRadius: {
+        borderRadius: 12,
+    },
     buttonText: {
         color: '#fff',
-        fontWeight: 'bold',
+        fontWeight: '700',
+        fontSize: 18, 
+        textTransform: 'uppercase',
+        letterSpacing: 0.5,
     },
+    
+    // --- FAVORITE TOGGLE ---
     favoriteButton: {
-        padding: 6, 
-        borderRadius: 15, 
+        paddingVertical: 10, 
+        borderRadius: 12, // Match inputs
         alignItems: 'center',
-        marginBottom: 10, 
+        marginBottom: 20, 
         borderWidth: 1,
     },
     favoriteActive: {
-        backgroundColor: '#FFC107', 
-        borderColor: '#FFC107',
+        backgroundColor: '#FFD700', // Gold color
+        borderColor: '#FFD700',
     },
     favoriteButtonText: {
-        fontWeight: 'bold',
+        fontWeight: '700',
     },
+    
+    // --- STATUS TOGGLE ---
     finishedButton: {
         backgroundColor: '#007BFF', 
     },
     finishedActive: {
-        backgroundColor: '#28A745', 
+        backgroundColor: '#28A745', // Success Green when active
     },
+    
+    // --- SAVE/DELETE BUTTONS ---
     saveButton: {
-        backgroundColor: '#17A2B8', 
+        backgroundColor: '#17A2B8', // Info/Teal color for primary action
     },
     deleteButton: {
         backgroundColor: '#DC3545', 
